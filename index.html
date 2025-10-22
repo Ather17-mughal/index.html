@@ -3,149 +3,148 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Word Game (Supabase Edition)</title>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <title>Imposter Guesser</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #0f172a;
+      font-family: 'Poppins', sans-serif;
+      background: #000;
       color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
       text-align: center;
-      padding: 40px;
+      margin: 0;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
     }
     button {
-      background-color: #3b82f6;
-      color: white;
-      padding: 10px 20px;
+      background: #0ff;
       border: none;
-      border-radius: 8px;
-      font-size: 16px;
+      border-radius: 50px;
+      padding: 18px 60px;
+      font-size: 1.3rem;
+      color: black;
       cursor: pointer;
-      margin-top: 10px;
+      box-shadow: 0 0 15px #0ff;
+      transition: 0.3s;
     }
-    input {
-      padding: 10px;
-      border-radius: 6px;
-      border: none;
-      width: 250px;
-      font-size: 16px;
+    button:hover {
+      box-shadow: 0 0 25px #0ff;
+      transform: scale(1.05);
     }
-    .hidden {
-      display: none;
-    }
-    .link-box {
+    #word {
+      font-size: 2rem;
+      font-weight: 600;
       margin-top: 20px;
-      background: #1e293b;
-      padding: 15px;
-      border-radius: 8px;
     }
   </style>
 </head>
 <body>
-  <h1>🎮 Secret Word Game</h1>
-
-  <div id="create-section">
-    <button id="createRoomBtn">Create Game Link</button>
-    <div class="link-box hidden" id="linkBox">
-      <p>Share this link with players:</p>
-      <input type="text" id="roomLink" readonly />
-      <button onclick="copyLink()">Copy</button>
-    </div>
+  <h1>Imposter Guesser</h1>
+  <div id="setup">
+    <p>Enter number of players:</p>
+    <input type="number" id="playerCount" placeholder="e.g. 5" min="3" max="20">
+    <br><br>
+    <button id="createGame">Create Game Link</button>
   </div>
 
-  <div id="join-section">
-    <h3>Or Join a Game</h3>
-    <input type="text" id="joinRoomId" placeholder="Enter Room ID" />
-    <button id="joinRoomBtn">Join</button>
-  </div>
-
-  <div id="game-section" class="hidden">
-    <h2 id="roomDisplay"></h2>
-    <p>Your word is:</p>
-    <h1 id="wordDisplay"></h1>
+  <div id="revealSection" style="display:none;">
+    <button id="revealBtn">REVEAL</button>
+    <div id="word"></div>
   </div>
 
   <script>
-    // ✅ Your Supabase project info
-    const SUPABASE_URL = "https://zaqiefpfwnwnsflfbloq.supabase.co";
-    const SUPABASE_ANON_KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
+    const supabaseUrl = "https://zaqiefpfwnwnsflfbloq.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const createGameBtn = document.getElementById("createGame");
+    const setup = document.getElementById("setup");
+    const revealSection = document.getElementById("revealSection");
+    const revealBtn = document.getElementById("revealBtn");
+    const wordDiv = document.getElementById("word");
 
-    // Elements
-    const createRoomBtn = document.getElementById("createRoomBtn");
-    const linkBox = document.getElementById("linkBox");
-    const roomLink = document.getElementById("roomLink");
-    const joinRoomBtn = document.getElementById("joinRoomBtn");
-    const joinRoomId = document.getElementById("joinRoomId");
-    const roomDisplay = document.getElementById("roomDisplay");
-    const wordDisplay = document.getElementById("wordDisplay");
-    const gameSection = document.getElementById("game-section");
+    const WORDS = ["Apple", "Football", "Computer", "River", "Doctor", "Pizza", "Mountain", "Book", "Camera", "Game"];
 
-    // Generate random room id
-    function generateRoomId() {
-      return Math.random().toString(36).substring(2, 8);
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get("room");
+
+    // When no room id → show setup
+    if (!roomId) {
+      setup.style.display = "block";
+      revealSection.style.display = "none";
+    } else {
+      setup.style.display = "none";
+      revealSection.style.display = "flex";
+      initGame();
     }
 
-    // Generate random words
-    const words = ["Apple", "Banana", "Mango", "Orange", "Cherry", "Peach"];
-
-    // ✅ Create Game Link
-    createRoomBtn.addEventListener("click", async () => {
-      const roomId = generateRoomId();
-      const randomWord = words[Math.floor(Math.random() * words.length)];
-
-      const { data, error } = await supabase
-        .from("rooms") // ✅ Correct table name
-        .insert([{ room_id: roomId, word: randomWord }]);
-
-      if (error) {
-        alert("❌ Error creating room: " + error.message);
-        console.error(error);
-        return;
-      }
-
-      const link = `${window.location.origin}?room=${roomId}`;
-      roomLink.value = link;
-      linkBox.classList.remove("hidden");
-    });
-
-    // ✅ Join Game
-    joinRoomBtn.addEventListener("click", async () => {
-      const roomId = joinRoomId.value.trim();
-      if (!roomId) return alert("Enter a valid Room ID!");
-
-      const { data, error } = await supabase
+    async function initGame() {
+      const { data: roomData } = await supabaseClient
         .from("rooms")
-        .select("word")
+        .select("*")
         .eq("room_id", roomId)
         .single();
 
-      if (error || !data) {
-        alert("Room not found!");
+      if (!roomData) {
+        wordDiv.innerText = "❌ Room not found.";
         return;
       }
 
-      roomDisplay.innerText = `Room ID: ${roomId}`;
-      wordDisplay.innerText = data.word;
-      gameSection.classList.remove("hidden");
-    });
+      let joined = roomData.joined || 0;
 
-    // ✅ Auto-join via shared link
-    const urlParams = new URLSearchParams(window.location.search);
-    const sharedRoom = urlParams.get("room");
-    if (sharedRoom) {
-      joinRoomId.value = sharedRoom;
-      joinRoomBtn.click();
+      if (joined >= roomData.total) {
+        wordDiv.innerText = "❌ Room is full.";
+        revealBtn.style.display = "none";
+        return;
+      }
+
+      // Assign player index
+      const playerIndex = joined;
+      await supabaseClient.from("rooms")
+        .update({ joined: joined + 1 })
+        .eq("room_id", roomId);
+
+      revealBtn.onclick = () => {
+        revealBtn.style.display = "none";
+        if (playerIndex === roomData.imposter) {
+          wordDiv.innerText = "😈 You are the Imposter!";
+        } else {
+          wordDiv.innerText = "🕵️‍♂️ Word: " + roomData.word;
+        }
+      };
     }
 
-    // ✅ Copy link
-    function copyLink() {
-      roomLink.select();
-      document.execCommand("copy");
-      alert("Link copied!");
-    }
+    createGameBtn.onclick = async () => {
+      const totalPlayers = parseInt(document.getElementById("playerCount").value);
+      if (!totalPlayers || totalPlayers < 3) {
+        alert("Please enter at least 3 players.");
+        return;
+      }
+
+      const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+      const imposterIndex = Math.floor(Math.random() * totalPlayers);
+      const roomId = Math.random().toString(36).substring(2, 8);
+
+      const { error } = await supabaseClient.from("rooms").insert([
+        { room_id: roomId, word: word, total: totalPlayers, joined: 0, imposter: imposterIndex }
+      ]);
+
+      if (error) {
+        alert("Error creating room: " + error.message);
+        return;
+      }
+
+      setup.innerHTML = `
+        <p>Share this link with players:</p>
+        <textarea style="width:90%;height:60px;">${window.location.origin + window.location.pathname}?room=${roomId}</textarea>
+      `;
+    };
   </script>
 </body>
 </html>
