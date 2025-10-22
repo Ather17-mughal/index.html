@@ -3,152 +3,148 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Imposter Guesser</title>
+  <title>Word Game (Supabase Edition)</title>
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <style>
     body {
-      background-color: #0a0a0a;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
       color: white;
-      font-family: 'Poppins', sans-serif;
       text-align: center;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-    h1 {
-      font-size: 2.5em;
-      margin-bottom: 20px;
-      color: #00ffff;
-      text-shadow: 0 0 10px #00ffff;
+      padding: 40px;
     }
     button {
-      background: none;
-      border: 2px solid #00ffff;
-      border-radius: 50px;
-      color: #00ffff;
-      padding: 20px 60px;
-      font-size: 1.5em;
+      background-color: #3b82f6;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
       cursor: pointer;
-      text-shadow: 0 0 5px #00ffff;
-      box-shadow: 0 0 15px #00ffff;
-      transition: 0.2s;
-    }
-    button:hover {
-      background: #00ffff;
-      color: black;
-      box-shadow: 0 0 30px #00ffff;
+      margin-top: 10px;
     }
     input {
-      margin: 10px;
       padding: 10px;
-      font-size: 1em;
-      border-radius: 8px;
+      border-radius: 6px;
       border: none;
-      outline: none;
+      width: 250px;
+      font-size: 16px;
     }
-    #message {
-      margin-top: 30px;
-      font-size: 1.3em;
-      color: #fff;
+    .hidden {
+      display: none;
+    }
+    .link-box {
+      margin-top: 20px;
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 8px;
     }
   </style>
 </head>
 <body>
-  <h1>🎭 Imposter Guesser</h1>
-  <div id="setup">
-    <input type="text" id="wordInput" placeholder="Enter secret word" />
-    <input type="number" id="playersInput" placeholder="Number of players" />
-    <button id="createBtn">Create Game Link</button>
+  <h1>🎮 Secret Word Game</h1>
+
+  <div id="create-section">
+    <button id="createRoomBtn">Create Game Link</button>
+    <div class="link-box hidden" id="linkBox">
+      <p>Share this link with players:</p>
+      <input type="text" id="roomLink" readonly />
+      <button onclick="copyLink()">Copy</button>
+    </div>
   </div>
 
-  <div id="revealSection" style="display: none;">
-    <button id="revealBtn">REVEAL</button>
-    <div id="message"></div>
+  <div id="join-section">
+    <h3>Or Join a Game</h3>
+    <input type="text" id="joinRoomId" placeholder="Enter Room ID" />
+    <button id="joinRoomBtn">Join</button>
+  </div>
+
+  <div id="game-section" class="hidden">
+    <h2 id="roomDisplay"></h2>
+    <p>Your word is:</p>
+    <h1 id="wordDisplay"></h1>
   </div>
 
   <script>
+    // ✅ Your Supabase project info
     const SUPABASE_URL = "https://zaqiefpfwnwnsflfbloq.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    async function createRoom(word, total) {
-      const roomId = Math.random().toString(36).substring(2, 8);
-      const imposter = Math.floor(Math.random() * total) + 1;
+    // Elements
+    const createRoomBtn = document.getElementById("createRoomBtn");
+    const linkBox = document.getElementById("linkBox");
+    const roomLink = document.getElementById("roomLink");
+    const joinRoomBtn = document.getElementById("joinRoomBtn");
+    const joinRoomId = document.getElementById("joinRoomId");
+    const roomDisplay = document.getElementById("roomDisplay");
+    const wordDisplay = document.getElementById("wordDisplay");
+    const gameSection = document.getElementById("game-section");
+
+    // Generate random room id
+    function generateRoomId() {
+      return Math.random().toString(36).substring(2, 8);
+    }
+
+    // Generate random words
+    const words = ["Apple", "Banana", "Mango", "Orange", "Cherry", "Peach"];
+
+    // ✅ Create Game Link
+    createRoomBtn.addEventListener("click", async () => {
+      const roomId = generateRoomId();
+      const randomWord = words[Math.floor(Math.random() * words.length)];
 
       const { data, error } = await supabase
-        .from("table editor")
-        .insert([{ room_id: roomId, word, total, imposter, joined: 0 }]);
+        .from("rooms") // ✅ Correct table name
+        .insert([{ room_id: roomId, word: randomWord }]);
 
       if (error) {
         alert("❌ Error creating room: " + error.message);
         console.error(error);
-        return null;
+        return;
       }
-      return roomId;
-    }
 
-    async function joinRoom(roomId) {
-      const { data: rooms } = await supabase
-        .from("table editor")
-        .select("*")
+      const link = `${window.location.origin}?room=${roomId}`;
+      roomLink.value = link;
+      linkBox.classList.remove("hidden");
+    });
+
+    // ✅ Join Game
+    joinRoomBtn.addEventListener("click", async () => {
+      const roomId = joinRoomId.value.trim();
+      if (!roomId) return alert("Enter a valid Room ID!");
+
+      const { data, error } = await supabase
+        .from("rooms")
+        .select("word")
         .eq("room_id", roomId)
-        .limit(1);
+        .single();
 
-      const room = rooms?.[0];
-      if (!room) {
-        document.getElementById("message").textContent = "Room not found.";
+      if (error || !data) {
+        alert("Room not found!");
         return;
       }
 
-      if (room.joined >= room.total) {
-        document.getElementById("message").textContent = "Room is full!";
-        return;
-      }
+      roomDisplay.innerText = `Room ID: ${roomId}`;
+      wordDisplay.innerText = data.word;
+      gameSection.classList.remove("hidden");
+    });
 
-      const playerNumber = room.joined + 1;
-      await supabase.from("table editor").update({ joined: playerNumber }).eq("room_id", roomId);
-
-      document.getElementById("setup").style.display = "none";
-      document.getElementById("revealSection").style.display = "block";
-
-      document.getElementById("revealBtn").onclick = () => {
-        const msg = document.getElementById("message");
-        if (playerNumber === room.imposter) {
-          msg.textContent = "😈 Oh no! You are the IMPOSTER!";
-        } else {
-          msg.textContent = "🗝️ Your word: " + room.word;
-        }
-        document.getElementById("revealBtn").disabled = true;
-      };
+    // ✅ Auto-join via shared link
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedRoom = urlParams.get("room");
+    if (sharedRoom) {
+      joinRoomId.value = sharedRoom;
+      joinRoomBtn.click();
     }
 
-    // Handle create game button
-    document.getElementById("createBtn").onclick = async () => {
-      const word = document.getElementById("wordInput").value.trim();
-      const total = parseInt(document.getElementById("playersInput").value);
-      if (!word || !total) {
-        alert("Enter both word and number of players!");
-        return;
-      }
-
-      const roomId = await createRoom(word, total);
-      if (roomId) {
-        const link = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-        navigator.clipboard.writeText(link);
-        alert("✅ Link copied! Share it with players:\n" + link);
-        window.location.search = `?room=${roomId}`;
-      }
-    };
-
-    // Auto-join if opened via shared link
-    const params = new URLSearchParams(window.location.search);
-    const roomParam = params.get("room");
-    if (roomParam) {
-      joinRoom(roomParam);
+    // ✅ Copy link
+    function copyLink() {
+      roomLink.select();
+      document.execCommand("copy");
+      alert("Link copied!");
     }
   </script>
 </body>
