@@ -108,7 +108,7 @@
   <script>
     // --- SUPABASE CONFIG ---
     const supabaseUrl = "https://zaqiefpfwnwnsflfbloq.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
+    const supabaseKey = "YOUR_SUPABASE_KEY";
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
     const WORDS = ["Apple", "Football", "Computer", "River", "Doctor", "Pizza", "Mountain", "Book", "Camera", "Game"];
@@ -144,6 +144,7 @@
     }
 
     async function initGame() {
+      // Fetch room data
       const { data: roomData } = await supabaseClient
         .from("rooms")
         .select("*")
@@ -155,24 +156,28 @@
         return;
       }
 
-      let joined = roomData.joined || 0;
-      if (joined >= roomData.total) {
+      if (roomData.joined >= roomData.total) {
         wordDiv.innerText = "❌ Room is full.";
         revealBtn.style.display = "none";
         return;
       }
 
-      const playerIndex = joined;
-      await supabaseClient.from("rooms")
-        .update({ joined: joined + 1 })
-        .eq("room_id", roomId);
+      // Increment joined in DB and fetch updated room
+      const { data: updatedRoom } = await supabaseClient.from("rooms")
+        .update({ joined: roomData.joined + 1 })
+        .eq("room_id", roomId)
+        .select()
+        .single();
+
+      // Compute player index
+      const playerIndex = updatedRoom.joined - 1;
 
       revealBtn.onclick = () => {
         revealBtn.style.display = "none";
-        if (playerIndex === roomData.imposter) {
+        if (playerIndex === updatedRoom.imposter) {
           wordDiv.innerText = "😈 You are the Imposter!";
         } else {
-          wordDiv.innerText = "🕵️‍♂️ Word: " + roomData.word;
+          wordDiv.innerText = "🕵️‍♂️ Word: " + updatedRoom.word;
         }
       };
     }
