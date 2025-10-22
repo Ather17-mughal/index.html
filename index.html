@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎭 Imposter Guesser</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.14/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-6 text-center">
+
+  <h1 class="text-3xl font-bold mb-4">🎭 Imposter Guesser</h1>
+  <p class="text-gray-400 mb-6">Share this same link with your friends!</p>
+  
+  <div class="bg-gray-800 p-6 rounded-2xl shadow-md w-full max-w-sm flex flex-col items-center">
+    <button id="reveal" class="bg-blue-600 px-6 py-3 rounded text-lg mb-4 hover:bg-blue-700">Reveal My Role</button>
+
+    <div id="result" class="hidden">
+      <h3 id="message" class="text-2xl font-bold mb-2"></h3>
+      <p id="wordDisplay" class="text-xl text-gray-300"></p>
+    </div>
+
+    <button id="reset" class="hidden bg-gray-700 mt-4 px-4 py-2 rounded hover:bg-gray-600">Reset</button>
+  </div>
+
+  <script>
+    const WORDS = ["Pizza", "Dog", "Beach", "Book", "Football", "Moon", "Laptop", "Coffee", "Car", "Ice Cream"];
+
+    const revealBtn = document.getElementById("reveal");
+    const resetBtn = document.getElementById("reset");
+    const result = document.getElementById("result");
+    const message = document.getElementById("message");
+    const wordDisplay = document.getElementById("wordDisplay");
+
+    // Generate random room ID based on URL (auto)
+    let room = new URLSearchParams(window.location.search).get("room");
+    if (!room) {
+      room = Math.random().toString(36).substring(2, 8);
+      const newURL = `${window.location.origin}${window.location.pathname}?room=${room}`;
+      history.replaceState(null, "", newURL);
+    }
+
+    // Store word + imposter locally per room
+    let word = localStorage.getItem(`${room}_word`);
+    let imp = localStorage.getItem(`${room}_imp`);
+
+    // If first player → assign word and imposter
+    if (!word || !imp) {
+      word = WORDS[Math.floor(Math.random() * WORDS.length)];
+      imp = Math.random().toString(36).substring(2, 10);
+      localStorage.setItem(`${room}_word`, word);
+      localStorage.setItem(`${room}_imp`, imp);
+    }
+
+    // Each player has unique ID in this room
+    let myId = localStorage.getItem(`myId_${room}`);
+    if (!myId) {
+      myId = Math.random().toString(36).substring(2, 10);
+      localStorage.setItem(`myId_${room}`, myId);
+    }
+
+    revealBtn.addEventListener("click", () => {
+      result.classList.remove("hidden");
+      revealBtn.classList.add("hidden");
+      resetBtn.classList.remove("hidden");
+
+      if (myId === imp) {
+        message.textContent = "😈 You are the Imposter!";
+        message.classList.add("text-red-400");
+        wordDisplay.textContent = "Try to blend in!";
+      } else {
+        message.textContent = "🕵️ You are a Player!";
+        message.classList.add("text-green-400");
+        wordDisplay.textContent = `Word: ${word}`;
+      }
+    });
+
+    resetBtn.addEventListener("click", () => {
+      localStorage.removeItem(`${room}_word`);
+      localStorage.removeItem(`${room}_imp`);
+      localStorage.removeItem(`myId_${room}`);
+      location.reload();
+    });
+  </script>
+
+</body>
+</html>
