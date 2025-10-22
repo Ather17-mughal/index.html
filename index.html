@@ -21,6 +21,8 @@
     h1 {
       color: #00ffff;
       text-shadow: 0 0 10px #00ffff;
+      font-size: 2rem;
+      margin-bottom: 20px;
     }
 
     input {
@@ -31,6 +33,7 @@
       width: 80%;
       max-width: 200px;
       text-align: center;
+      font-size: 16px;
     }
 
     button {
@@ -62,6 +65,7 @@
       margin-top: 20px;
       word-wrap: break-word;
       color: #00ffff;
+      max-width: 90%;
     }
   </style>
 </head>
@@ -81,26 +85,41 @@
 
   <div id="linkBox"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const SUPABASE_URL = "https://zaqiefpfwnwnsflfbloq.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <!-- ✅ Proper Supabase import via module -->
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-    const WORDS = ["Apple", "Elephant", "Football", "Pizza", "Moon", "Laptop", "Mountain", "Car", "Cat", "Book"];
+    const SUPABASE_URL = "https://zaqiefpfwnwnsflfbloq.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const WORDS = [
+      "Apple",
+      "Elephant",
+      "Football",
+      "Pizza",
+      "Moon",
+      "Laptop",
+      "Mountain",
+      "Car",
+      "Cat",
+      "Book",
+    ];
 
     const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get('room');
+    const roomId = urlParams.get("room");
 
-    const createRoomBtn = document.getElementById('createRoomBtn');
-    const createRoomSection = document.getElementById('createRoomSection');
-    const joinSection = document.getElementById('joinSection');
-    const revealBtn = document.getElementById('revealBtn');
-    const result = document.getElementById('result');
-    const linkBox = document.getElementById('linkBox');
+    const createRoomBtn = document.getElementById("createRoomBtn");
+    const createRoomSection = document.getElementById("createRoomSection");
+    const joinSection = document.getElementById("joinSection");
+    const revealBtn = document.getElementById("revealBtn");
+    const result = document.getElementById("result");
+    const linkBox = document.getElementById("linkBox");
 
     async function createRoom() {
-      const totalPlayers = parseInt(document.getElementById('playerCount').value);
+      const totalPlayers = parseInt(document.getElementById("playerCount").value);
       if (!totalPlayers || totalPlayers < 2) {
         alert("Please enter valid number of players (min 2)");
         return;
@@ -110,9 +129,17 @@
       const word = WORDS[Math.floor(Math.random() * WORDS.length)];
       const imposterNum = Math.floor(Math.random() * totalPlayers) + 1;
 
-      const { data, error } = await supabase
-        .from('rooms')
-        .insert([{ room_id: roomCode, word: window.btoa(word), total: totalPlayers, imposter: imposterNum, joined: 0 }]);
+      const { error } = await supabase
+        .from("rooms")
+        .insert([
+          {
+            room_id: roomCode,
+            word: window.btoa(word),
+            total: totalPlayers,
+            imposter: imposterNum,
+            joined: 0,
+          },
+        ]);
 
       if (error) {
         console.error(error);
@@ -121,11 +148,16 @@
       }
 
       const link = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
-      linkBox.innerHTML = `<p>Share this link:</p><p>${link}</p>`;
+      linkBox.innerHTML = `<p>Share this link:</p><p><b>${link}</b></p>`;
     }
 
     async function joinRoom() {
-      const { data, error } = await supabase.from('rooms').select('*').eq('room_id', roomId).single();
+      const { data, error } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("room_id", roomId)
+        .single();
+
       if (error || !data) {
         result.textContent = "Room not found.";
         return;
@@ -137,9 +169,13 @@
       }
 
       const playerNumber = data.joined + 1;
-      await supabase.from('rooms').update({ joined: playerNumber }).eq('room_id', roomId);
 
-      revealBtn.addEventListener('click', () => {
+      await supabase
+        .from("rooms")
+        .update({ joined: playerNumber })
+        .eq("room_id", roomId);
+
+      revealBtn.addEventListener("click", () => {
         if (playerNumber === data.imposter) {
           result.textContent = "😈 You are the Imposter!";
         } else {
@@ -155,7 +191,7 @@
       joinRoom();
     }
 
-    createRoomBtn.addEventListener('click', createRoom);
+    createRoomBtn.addEventListener("click", createRoom);
   </script>
 </body>
 </html>
