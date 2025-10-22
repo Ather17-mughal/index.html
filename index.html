@@ -18,69 +18,128 @@
       text-align: center;
       margin: 0;
     }
+
     h1 {
       font-size: 1.8rem;
-      margin-bottom: 1rem;
+      margin-bottom: 1.2rem;
     }
+
+    select, button {
+      font-size: 1.1rem;
+      border-radius: 50px;
+      padding: 15px 25px;
+      border: none;
+      outline: none;
+    }
+
+    select {
+      background: #111;
+      color: #0ff;
+      border: 2px solid #0ff;
+      box-shadow: 0 0 10px #0ff2;
+    }
+
     button {
       background: #0ff;
-      border: none;
-      border-radius: 50px;
-      padding: 18px 60px;
-      font-size: 1.3rem;
       color: black;
-      cursor: pointer;
+      font-weight: bold;
+      margin-top: 20px;
       box-shadow: 0 0 15px #0ff;
+      cursor: pointer;
       transition: 0.3s;
     }
+
     button:hover {
-      box-shadow: 0 0 25px #0ff;
       transform: scale(1.05);
+      box-shadow: 0 0 25px #0ff;
     }
+
     #word {
       font-size: 2rem;
       font-weight: 600;
       margin-top: 20px;
     }
+
+    .hidden {
+      display: none;
+    }
+
+    .copy-btn {
+      background: #0ff;
+      color: black;
+      padding: 15px 30px;
+      border-radius: 50px;
+      border: none;
+      box-shadow: 0 0 15px #0ff;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .copy-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 25px #0ff;
+    }
   </style>
 </head>
 <body>
   <h1>Imposter Guesser</h1>
+
   <div id="setup">
-    <p>Enter number of players:</p>
-    <input type="number" id="playerCount" placeholder="e.g. 5" min="3" max="20">
-    <br><br>
+    <p>Select number of players:</p>
+    <select id="playerCount">
+      <option value="">-- Choose --</option>
+    </select>
+    <br>
     <button id="createGame">Create Game Link</button>
   </div>
 
-  <div id="revealSection" style="display:none;">
+  <div id="revealSection" class="hidden">
     <button id="revealBtn">REVEAL</button>
     <div id="word"></div>
   </div>
 
+  <div id="shareSection" class="hidden">
+    <p>Share this link with players:</p>
+    <button id="copyLink" class="copy-btn">Copy Link</button>
+    <p id="copiedMsg" style="display:none; color:#0f0; margin-top:10px;">✅ Link Copied!</p>
+  </div>
+
   <script>
+    // --- SUPABASE CONFIG ---
     const supabaseUrl = "https://zaqiefpfwnwnsflfbloq.supabase.co";
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    const createGameBtn = document.getElementById("createGame");
+    const WORDS = ["Apple", "Football", "Computer", "River", "Doctor", "Pizza", "Mountain", "Book", "Camera", "Game"];
+
     const setup = document.getElementById("setup");
     const revealSection = document.getElementById("revealSection");
     const revealBtn = document.getElementById("revealBtn");
     const wordDiv = document.getElementById("word");
+    const shareSection = document.getElementById("shareSection");
+    const copyLinkBtn = document.getElementById("copyLink");
+    const copiedMsg = document.getElementById("copiedMsg");
+    const playerSelect = document.getElementById("playerCount");
 
-    const WORDS = ["Apple", "Football", "Computer", "River", "Doctor", "Pizza", "Mountain", "Book", "Camera", "Game"];
+    // Populate dropdown (3–20)
+    for (let i = 3; i <= 20; i++) {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = i;
+      playerSelect.appendChild(opt);
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get("room");
 
-    // When no room id → show setup
+    // --- PAGE LOGIC ---
     if (!roomId) {
       setup.style.display = "block";
-      revealSection.style.display = "none";
+      revealSection.classList.add("hidden");
     } else {
       setup.style.display = "none";
-      revealSection.style.display = "flex";
+      revealSection.classList.remove("hidden");
       initGame();
     }
 
@@ -97,14 +156,12 @@
       }
 
       let joined = roomData.joined || 0;
-
       if (joined >= roomData.total) {
         wordDiv.innerText = "❌ Room is full.";
         revealBtn.style.display = "none";
         return;
       }
 
-      // Assign player index
       const playerIndex = joined;
       await supabaseClient.from("rooms")
         .update({ joined: joined + 1 })
@@ -120,10 +177,10 @@
       };
     }
 
-    createGameBtn.onclick = async () => {
-      const totalPlayers = parseInt(document.getElementById("playerCount").value);
-      if (!totalPlayers || totalPlayers < 3) {
-        alert("Please enter at least 3 players.");
+    document.getElementById("createGame").onclick = async () => {
+      const totalPlayers = parseInt(playerSelect.value);
+      if (!totalPlayers) {
+        alert("Please select number of players.");
         return;
       }
 
@@ -140,10 +197,16 @@
         return;
       }
 
-      setup.innerHTML = `
-        <p>Share this link with players:</p>
-        <textarea style="width:90%;height:60px;">${window.location.origin + window.location.pathname}?room=${roomId}</textarea>
-      `;
+      setup.style.display = "none";
+      shareSection.classList.remove("hidden");
+
+      const gameLink = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+
+      copyLinkBtn.onclick = async () => {
+        await navigator.clipboard.writeText(gameLink);
+        copiedMsg.style.display = "block";
+        setTimeout(() => copiedMsg.style.display = "none", 2000);
+      };
     };
   </script>
 </body>
