@@ -1,172 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Imposter Guesser</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.14/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background: linear-gradient(135deg, #0f172a, #1e293b);
+      background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%);
       font-family: 'Inter', sans-serif;
-      transition: background 0.3s ease;
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      text-align: center;
+      overflow: hidden;
+    }
+    .glow-btn {
+      background: none;
+      border: 3px solid #0ff;
+      color: #0ff;
+      font-size: 2rem;
+      font-weight: 700;
+      padding: 1rem 3rem;
+      border-radius: 9999px;
+      box-shadow: 0 0 15px #0ff;
+      transition: all 0.2s ease;
+    }
+    .glow-btn:hover {
+      box-shadow: 0 0 25px #0ff;
+      transform: scale(1.05);
     }
     .fade { animation: fadeIn 0.4s ease-in-out; }
-    @keyframes fadeIn { from {opacity:0; transform:scale(0.95);} to {opacity:1; transform:scale(1);} }
+    @keyframes fadeIn { from {opacity:0; transform:scale(0.9);} to {opacity:1; transform:scale(1);} }
   </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen text-white text-center px-6">
+<body>
+  <button id="revealBtn" class="glow-btn fade">REVEAL</button>
 
-  <div id="game" class="fade flex flex-col items-center justify-center gap-6 w-full">
-    <button id="reveal" 
-      class="bg-white text-black text-2xl font-semibold px-12 py-6 rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all duration-150">
-      REVEAL
-    </button>
-
-    <div id="result" class="hidden fade flex flex-col items-center">
-      <p id="wordDisplay" class="text-4xl font-bold tracking-wide"></p>
-    </div>
-
-    <button id="copyLink" class="hidden bg-gray-700 text-sm px-4 py-2 rounded-full mt-4">Copy Invite Link</button>
-  </div>
+  <div id="result" class="hidden fade mt-6 text-3xl font-bold"></div>
 
   <script>
-    const WORDS = ["Pizza","Sun","Laptop","River","Book","Coffee","Dog","Car","Music","Beach"];
-    const revealBtn = document.getElementById("reveal");
+    const WORDS = ["Pizza","Ocean","Laptop","Tiger","Sun","Car","Book","Coffee","River","Camera"];
+
+    const revealBtn = document.getElementById("revealBtn");
     const result = document.getElementById("result");
-    const wordDisplay = document.getElementById("wordDisplay");
-    const copyLinkBtn = document.getElementById("copyLink");
 
     const params = new URLSearchParams(window.location.search);
     let room = params.get("room");
-    let word = params.get("word");
-    let imp = params.get("imp");
+    let setup = localStorage.getItem(`setup_${room}`);
 
-    // 1️⃣ If no room exists, make one (creator phase)
+    // Step 1: if no room param → create and share base link
     if (!room) {
       room = Math.random().toString(36).substring(2, 8);
-      const newURL = `${window.location.origin}${window.location.pathname}?room=${room}`;
-      history.replaceState(null, "", newURL);
-      alert("✅ Share this link with friends:\n\n" + newURL);
-      navigator.clipboard.writeText(newURL);
+      const baseLink = `${window.location.origin}${window.location.pathname}?room=${room}`;
+      history.replaceState(null, "", baseLink);
+      alert("✅ Share this link with your friends:\n\n" + baseLink);
+      navigator.clipboard.writeText(baseLink);
     }
 
-    // 2️⃣ Each player gets their unique ID
+    // Step 2: every player gets a local ID
     let myId = localStorage.getItem(`myId_${room}`);
     if (!myId) {
-      myId = Math.random().toString(36).substring(2, 10);
+      myId = Math.random().toString(36).substring(2, 9);
       localStorage.setItem(`myId_${room}`, myId);
     }
 
-    // 3️⃣ When REVEAL is clicked
+    // Step 3: when REVEAL clicked
     revealBtn.addEventListener("click", () => {
-      // If word/imp not yet set, first player defines them
-      if (!word || !imp) {
-        word = WORDS[Math.floor(Math.random() * WORDS.length)];
-        imp = Math.random().toString(36).substring(2, 10);
-        const newURL = `${window.location.origin}${window.location.pathname}?room=${room}&word=${encodeURIComponent(word)}&imp=${imp}`;
-        history.replaceState(null, "", newURL);
-        navigator.clipboard.writeText(newURL);
-        alert("🔗 Game ready! Share this final link with everyone:\n\n" + newURL);
+      let data;
+      if (!setup) {
+        // first player defines the setup
+        const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+        const imposterId = Math.random().toString(36).substring(2, 9);
+        data = { word, imposterId };
+        localStorage.setItem(`setup_${room}`, JSON.stringify(data));
+        alert("🔗 Game setup complete! Share the same link (already copied).");
+      } else {
+        data = JSON.parse(setup);
       }
 
       revealBtn.classList.add("hidden");
       result.classList.remove("hidden");
-      copyLinkBtn.classList.remove("hidden");
 
-      if (myId === imp) {
-        document.body.style.background = "linear-gradient(135deg, #7f1d1d, #b91c1c)";
-        wordDisplay.textContent = "😈 Oh! You are the Imposter";
+      if (myId === data.imposterId) {
+        document.body.style.background = "radial-gradient(circle at center, #400 0%, #000 100%)";
+        result.textContent = "😈 Oh! You are the Imposter";
       } else {
-        document.body.style.background = "linear-gradient(135deg, #064e3b, #065f46)";
-        wordDisplay.textContent = word;
-      }
-    });
-
-    copyLinkBtn.addEventListener("click", () => {
-      navigator.clipboard.writeText(window.location.href);
-      copyLinkBtn.textContent = "✅ Copied!";
-      setTimeout(() => copyLinkBtn.textContent = "Copy Invite Link", 2000);
-    });
-  </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Imposter Guesser</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.14/dist/tailwind.min.css" rel="stylesheet">
-  <style>
-    body {
-      background: linear-gradient(135deg, #0f172a, #1e293b);
-      font-family: 'Inter', sans-serif;
-      transition: background 0.3s ease;
-    }
-    .fade {
-      animation: fadeIn 0.4s ease-in-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.95); }
-      to { opacity: 1; transform: scale(1); }
-    }
-  </style>
-</head>
-<body class="flex flex-col items-center justify-center min-h-screen text-white text-center px-6">
-
-  <div id="game" class="fade flex flex-col items-center justify-center gap-6 w-full">
-    <button id="reveal" 
-      class="bg-white text-black text-2xl font-semibold px-12 py-6 rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all duration-150">
-      REVEAL
-    </button>
-
-    <div id="result" class="hidden fade flex flex-col items-center">
-      <p id="wordDisplay" class="text-4xl font-bold tracking-wide"></p>
-    </div>
-  </div>
-
-  <script>
-    const WORDS = ["Pizza", "Sun", "Laptop", "River", "Book", "Coffee", "Dog", "Car", "Music", "Beach"];
-    const revealBtn = document.getElementById("reveal");
-    const result = document.getElementById("result");
-    const wordDisplay = document.getElementById("wordDisplay");
-
-    // generate random room link if not present
-    let room = new URLSearchParams(window.location.search).get("room");
-    if (!room) {
-      room = Math.random().toString(36).substring(2, 8);
-      const newURL = `${window.location.origin}${window.location.pathname}?room=${room}`;
-      history.replaceState(null, "", newURL);
-    }
-
-    // setup word and imposter
-    let word = localStorage.getItem(`${room}_word`);
-    let imp = localStorage.getItem(`${room}_imp`);
-    if (!word || !imp) {
-      word = WORDS[Math.floor(Math.random() * WORDS.length)];
-      imp = Math.random().toString(36).substring(2, 10);
-      localStorage.setItem(`${room}_word`, word);
-      localStorage.setItem(`${room}_imp`, imp);
-    }
-
-    // assign ID for player
-    let myId = localStorage.getItem(`myId_${room}`);
-    if (!myId) {
-      myId = Math.random().toString(36).substring(2, 10);
-      localStorage.setItem(`myId_${room}`, myId);
-    }
-
-    revealBtn.addEventListener("click", () => {
-      revealBtn.classList.add("hidden");
-      result.classList.remove("hidden");
-
-      if (myId === imp) {
-        document.body.style.background = "linear-gradient(135deg, #7f1d1d, #b91c1c)";
-        wordDisplay.textContent = "😈 Oh! You are the Imposter";
-      } else {
-        document.body.style.background = "linear-gradient(135deg, #064e3b, #065f46)";
-        wordDisplay.textContent = word;
+        document.body.style.background = "radial-gradient(circle at center, #003300 0%, #000 100%)";
+        result.textContent = data.word;
       }
     });
   </script>
