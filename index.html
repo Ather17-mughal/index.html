@@ -106,113 +106,120 @@
   </div>
 
   <script>
-    // --- SUPABASE CONFIG ---
-    const supabaseUrl = "https://zaqiefpfwnwnsflfbloq.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+  // --- SUPABASE CONFIG ---
+  const supabaseUrl = "https://zaqiefpfwnwnsflfbloq.supabase.co";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
+  const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    const WORDS = ["Apple", "Football", "Computer", "River", "Doctor", "Pizza", "Mountain", "Book", "Camera", "Game"];
+  const WORDS = ["Apple", "Football", "Computer", "River", "Doctor", "Pizza", "Mountain", "Book", "Camera", "Game"];
 
-    const setup = document.getElementById("setup");
-    const revealSection = document.getElementById("revealSection");
-    const revealBtn = document.getElementById("revealBtn");
-    const wordDiv = document.getElementById("word");
-    const shareSection = document.getElementById("shareSection");
-    const copyLinkBtn = document.getElementById("copyLink");
-    const copiedMsg = document.getElementById("copiedMsg");
-    const playerSelect = document.getElementById("playerCount");
+  const setup = document.getElementById("setup");
+  const revealSection = document.getElementById("revealSection");
+  const revealBtn = document.getElementById("revealBtn");
+  const wordDiv = document.getElementById("word");
+  const shareSection = document.getElementById("shareSection");
+  const copyLinkBtn = document.getElementById("copyLink");
+  const copiedMsg = document.getElementById("copiedMsg");
+  const playerSelect = document.getElementById("playerCount");
 
-    // Populate dropdown (3–20)
-    for (let i = 3; i <= 20; i++) {
-      const opt = document.createElement("option");
-      opt.value = i;
-      opt.textContent = i;
-      playerSelect.appendChild(opt);
+  // Populate dropdown (3–20)
+  for (let i = 3; i <= 20; i++) {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = i;
+    playerSelect.appendChild(opt);
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomId = urlParams.get("room");
+
+  // --- PAGE LOGIC ---
+  if (!roomId) {
+    setup.style.display = "block";
+    revealSection.classList.add("hidden");
+  } else {
+    setup.style.display = "none";
+    revealSection.classList.remove("hidden");
+    initGame();
+  }
+
+  async function initGame() {
+    // Fetch room data
+    const { data: roomData } = await supabaseClient
+      .from("rooms")
+      .select("*")
+      .eq("room_id", roomId)
+      .single();
+
+    if (!roomData) {
+      wordDiv.innerText = "❌ Room not found.";
+      return;
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get("room");
-
-    // --- PAGE LOGIC ---
-    if (!roomId) {
-      setup.style.display = "block";
-      revealSection.classList.add("hidden");
-    } else {
-      setup.style.display = "none";
-      revealSection.classList.remove("hidden");
-      initGame();
+    if (roomData.joined >= roomData.total) {
+      wordDiv.innerText = "❌ Room is full.";
+      revealBtn.style.display = "none";
+      return;
     }
 
-    async function initGame() {
-      // Fetch room data
-      const { data: roomData } = await supabaseClient
-        .from("rooms")
-        .select("*")
-        .eq("room_id", roomId)
-        .single();
+    // Increment joined and fetch updated room
+    const { data: updatedRoom, error } = await supabaseClient
+      .from("rooms")
+      .update({ joined: roomData.joined + 1 })
+      .eq("room_id", roomId)
+      .select()
+      .single();
 
-      if (!roomData) {
-        wordDiv.innerText = "❌ Room not found.";
-        return;
-      }
-
-      if (roomData.joined >= roomData.total) {
-        wordDiv.innerText = "❌ Room is full.";
-        revealBtn.style.display = "none";
-        return;
-      }
-
-      // Increment joined in DB and fetch updated room
-      const { data: updatedRoom } = await supabaseClient.from("rooms")
-        .update({ joined: roomData.joined + 1 })
-        .eq("room_id", roomId)
-        .select()
-        .single();
-
-      // Compute player index
-      const playerIndex = updatedRoom.joined - 1;
-
-      revealBtn.onclick = () => {
-        revealBtn.style.display = "none";
-        if (playerIndex === updatedRoom.imposter) {
-          wordDiv.innerText = "😈 You are the Imposter!";
-        } else {
-          wordDiv.innerText = "🕵️‍♂️ Word: " + updatedRoom.word;
-        }
-      };
+    if (error) {
+      wordDiv.innerText = "❌ Error updating room.";
+      return;
     }
 
-    document.getElementById("createGame").onclick = async () => {
-      const totalPlayers = parseInt(playerSelect.value);
-      if (!totalPlayers) {
-        alert("Please select number of players.");
-        return;
+    // Correct player index
+    const playerIndex = updatedRoom.joined - 1;
+
+    revealBtn.onclick = () => {
+      revealBtn.style.display = "none";
+      if (playerIndex === updatedRoom.imposter) {
+        wordDiv.innerText = "😈 You are the Imposter!";
+      } else {
+        wordDiv.innerText = "🕵️‍♂️ Word: " + updatedRoom.word;
       }
-
-      const word = WORDS[Math.floor(Math.random() * WORDS.length)];
-      const imposterIndex = Math.floor(Math.random() * totalPlayers);
-      const roomId = Math.random().toString(36).substring(2, 8);
-
-      const { error } = await supabaseClient.from("rooms").insert([
-        { room_id: roomId, word: word, total: totalPlayers, joined: 0, imposter: imposterIndex }
-      ]);
-
-      if (error) {
-        alert("Error creating room: " + error.message);
-        return;
-      }
-
-      setup.style.display = "none";
-      shareSection.classList.remove("hidden");
-
-      const gameLink = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-
-      copyLinkBtn.onclick = async () => {
-        await navigator.clipboard.writeText(gameLink);
-        copiedMsg.style.display = "block";
-        setTimeout(() => copiedMsg.style.display = "none", 2000);
-      };
     };
-  </script>
+  }
+
+  document.getElementById("createGame").onclick = async () => {
+    const totalPlayers = parseInt(playerSelect.value);
+    if (!totalPlayers) {
+      alert("Please select number of players.");
+      return;
+    }
+
+    const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+    const imposterIndex = Math.floor(Math.random() * totalPlayers);
+    const roomId = Math.random().toString(36).substring(2, 8);
+
+    const { error } = await supabaseClient.from("rooms").insert([
+      { room_id: roomId, word: word, total: totalPlayers, joined: 0, imposter: imposterIndex }
+    ]);
+
+    if (error) {
+      alert("Error creating room: " + error.message);
+      return;
+    }
+
+    setup.style.display = "none";
+    shareSection.classList.remove("hidden");
+
+    const gameLink = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+
+    copyLinkBtn.onclick = async () => {
+      await navigator.clipboard.writeText(gameLink);
+      copiedMsg.style.display = "block";
+      setTimeout(() => copiedMsg.style.display = "none", 2000);
+    };
+  };
+</script>
+
 </body>
 </html>
