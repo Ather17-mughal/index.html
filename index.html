@@ -7,14 +7,14 @@
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.14/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%);
+      background: radial-gradient(circle at center, #000 0%, #050505 100%);
       font-family: 'Inter', sans-serif;
-      color: #fff;
-      height: 100vh;
+      color: white;
       display: flex;
-      justify-content: center;
-      align-items: center;
       flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
       text-align: center;
       overflow: hidden;
     }
@@ -22,37 +22,57 @@
       background: none;
       border: 3px solid #0ff;
       color: #0ff;
-      font-size: 2rem;
+      font-size: 2.5rem;
       font-weight: 700;
-      padding: 1rem 3rem;
+      padding: 1.2rem 3.5rem;
       border-radius: 9999px;
-      box-shadow: 0 0 15px #0ff;
+      box-shadow: 0 0 20px #0ff;
       transition: all 0.2s ease;
     }
     .glow-btn:hover {
-      box-shadow: 0 0 25px #0ff;
+      box-shadow: 0 0 40px #0ff;
       transform: scale(1.05);
     }
-    .fade { animation: fadeIn 0.4s ease-in-out; }
-    @keyframes fadeIn { from {opacity:0; transform:scale(0.9);} to {opacity:1; transform:scale(1);} }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 3rem;
+      color: #0ff;
+      text-shadow: 0 0 15px #0ff;
+    }
+    .fade { animation: fadeIn 0.5s ease-in-out; }
+    @keyframes fadeIn { from {opacity:0; transform:scale(0.95);} to {opacity:1; transform:scale(1);} }
   </style>
 </head>
 <body>
+  <h1 class="fade">IMPOSTER GUESSER</h1>
   <button id="revealBtn" class="glow-btn fade">REVEAL</button>
-
-  <div id="result" class="hidden fade mt-6 text-3xl font-bold"></div>
+  <div id="result" class="hidden fade mt-8 text-3xl font-bold"></div>
 
   <script>
-    const WORDS = ["Pizza","Ocean","Laptop","Tiger","Sun","Car","Book","Coffee","River","Camera"];
+    const WORDS = ["Pizza", "River", "Sun", "Laptop", "Tiger", "Coffee", "Ocean", "Camera", "Car", "Book"];
 
     const revealBtn = document.getElementById("revealBtn");
     const result = document.getElementById("result");
 
     const params = new URLSearchParams(window.location.search);
     let room = params.get("room");
-    let setup = localStorage.getItem(`setup_${room}`);
+    let hashData = window.location.hash.substring(1); // after #
+    let decoded = null;
 
-    // Step 1: if no room param → create and share base link
+    // Helper: simple encoding/decoding (base64)
+    function encodeData(data) {
+      return btoa(JSON.stringify(data));
+    }
+
+    function decodeData(str) {
+      try {
+        return JSON.parse(atob(str));
+      } catch {
+        return null;
+      }
+    }
+
+    // Step 1: If no room, create one
     if (!room) {
       room = Math.random().toString(36).substring(2, 8);
       const baseLink = `${window.location.origin}${window.location.pathname}?room=${room}`;
@@ -61,36 +81,39 @@
       navigator.clipboard.writeText(baseLink);
     }
 
-    // Step 2: every player gets a local ID
+    // Step 2: Each player gets unique ID
     let myId = localStorage.getItem(`myId_${room}`);
     if (!myId) {
       myId = Math.random().toString(36).substring(2, 9);
       localStorage.setItem(`myId_${room}`, myId);
     }
 
-    // Step 3: when REVEAL clicked
+    // Step 3: Determine if game already set up
+    if (hashData) decoded = decodeData(hashData);
+
     revealBtn.addEventListener("click", () => {
-      let data;
-      if (!setup) {
-        // first player defines the setup
+      if (!decoded) {
+        // First player sets the game
         const word = WORDS[Math.floor(Math.random() * WORDS.length)];
         const imposterId = Math.random().toString(36).substring(2, 9);
-        data = { word, imposterId };
-        localStorage.setItem(`setup_${room}`, JSON.stringify(data));
-        alert("🔗 Game setup complete! Share the same link (already copied).");
-      } else {
-        data = JSON.parse(setup);
+        const gameData = { word, imposterId };
+        const encoded = encodeData(gameData);
+        const finalLink = `${window.location.origin}${window.location.pathname}?room=${room}#${encoded}`;
+        history.replaceState(null, "", finalLink);
+        navigator.clipboard.writeText(finalLink);
+        alert("🔗 Game created! Share this link with everyone:\n\n" + finalLink);
+        decoded = gameData;
       }
 
       revealBtn.classList.add("hidden");
       result.classList.remove("hidden");
 
-      if (myId === data.imposterId) {
+      if (myId === decoded.imposterId) {
         document.body.style.background = "radial-gradient(circle at center, #400 0%, #000 100%)";
         result.textContent = "😈 Oh! You are the Imposter";
       } else {
         document.body.style.background = "radial-gradient(circle at center, #003300 0%, #000 100%)";
-        result.textContent = data.word;
+        result.textContent = decoded.word;
       }
     });
   </script>
