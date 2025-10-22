@@ -3,31 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Imposter Guesser</title>
+  <title>Imposter Guesser with Chat</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
       font-family: 'Poppins', sans-serif;
       background: #000;
       color: white;
+      margin: 0;
+      height: 100vh;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       align-items: center;
-      height: 100vh;
-      text-align: center;
-      margin: 0;
+      justify-content: flex-start;
+      padding-top: 20px;
     }
 
     h1 {
       font-size: 1.8rem;
-      margin-bottom: 1.2rem;
+      margin-bottom: 1rem;
     }
 
-    select, button {
-      font-size: 1.1rem;
+    select, button, input {
+      font-size: 1rem;
       border-radius: 50px;
-      padding: 15px 25px;
+      padding: 10px 20px;
       border: none;
       outline: none;
     }
@@ -43,10 +43,10 @@
       background: #0ff;
       color: black;
       font-weight: bold;
-      margin-top: 20px;
-      box-shadow: 0 0 15px #0ff;
+      margin-top: 10px;
       cursor: pointer;
       transition: 0.3s;
+      box-shadow: 0 0 15px #0ff;
     }
 
     button:hover {
@@ -55,35 +55,74 @@
     }
 
     #word {
-      font-size: 2rem;
+      font-size: 1.8rem;
       font-weight: 600;
       margin-top: 20px;
+      margin-bottom: 20px;
     }
 
-    .hidden {
-      display: none;
+    #gameContainer {
+      display: flex;
+      gap: 20px;
+      width: 90%;
+      max-width: 1000px;
+    }
+
+    #gameArea {
+      flex: 2;
+      text-align: center;
+    }
+
+    #chatArea {
+      flex: 1;
+      border: 2px solid #0ff;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      height: 400px;
+    }
+
+    #chatMessages {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      background: #111;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    #chatInput {
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      outline: none;
+      width: 100%;
     }
 
     .copy-btn {
       background: #0ff;
       color: black;
-      padding: 15px 30px;
+      padding: 10px 20px;
       border-radius: 50px;
       border: none;
-      box-shadow: 0 0 15px #0ff;
       font-size: 1rem;
       cursor: pointer;
       transition: 0.3s;
+      box-shadow: 0 0 15px #0ff;
     }
 
     .copy-btn:hover {
       transform: scale(1.05);
       box-shadow: 0 0 25px #0ff;
     }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h1>Imposter Guesser</h1>
+  <h1>Imposter Guesser with Chat</h1>
 
   <div id="setup">
     <p>Select number of players:</p>
@@ -94,33 +133,44 @@
     <button id="createGame">Create Game Link</button>
   </div>
 
-  <div id="revealSection" class="hidden">
-    <button id="revealBtn">REVEAL</button>
-    <div id="word"></div>
-  </div>
-
   <div id="shareSection" class="hidden">
     <p>Share this link with players:</p>
     <button id="copyLink" class="copy-btn">Copy Link</button>
     <p id="copiedMsg" style="display:none; color:#0f0; margin-top:10px;">✅ Link Copied!</p>
   </div>
 
+  <div id="gameContainer" class="hidden">
+    <div id="gameArea">
+      <button id="revealBtn">REVEAL</button>
+      <div id="word"></div>
+    </div>
+
+    <div id="chatArea">
+      <div id="chatMessages"></div>
+      <input id="chatInput" type="text" placeholder="Type your sentence..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
   <script>
     // --- SUPABASE CONFIG ---
     const supabaseUrl = "https://zaqiefpfwnwnsflfbloq.supabase.co";
-    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcWllZnBmd253bnNmbGZibG9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNTEyMjksImV4cCI6MjA3NjcyNzIyOX0.sopNAnbCiOmJimpnvf2GOI8WJkxaPgAk7Clv4L-aKAg";
+    const supabaseKey = "YOUR_SUPABASE_KEY";
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
     const WORDS = ["Apple", "Football", "Computer", "River", "Doctor", "Pizza", "Mountain", "Book", "Camera", "Game"];
 
     const setup = document.getElementById("setup");
-    const revealSection = document.getElementById("revealSection");
     const revealBtn = document.getElementById("revealBtn");
     const wordDiv = document.getElementById("word");
+    const gameContainer = document.getElementById("gameContainer");
     const shareSection = document.getElementById("shareSection");
     const copyLinkBtn = document.getElementById("copyLink");
     const copiedMsg = document.getElementById("copiedMsg");
     const playerSelect = document.getElementById("playerCount");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const chatMessages = document.getElementById("chatMessages");
 
     // Populate dropdown (3–20)
     for (let i = 3; i <= 20; i++) {
@@ -131,15 +181,17 @@
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get("room");
+    const roomIdParam = urlParams.get("room");
+    let playerIndex = 0;
+    let totalPlayers = 0;
+    let roomId = roomIdParam;
 
-    // --- PAGE LOGIC ---
     if (!roomId) {
       setup.style.display = "block";
-      revealSection.classList.add("hidden");
+      gameContainer.classList.add("hidden");
     } else {
       setup.style.display = "none";
-      revealSection.classList.remove("hidden");
+      gameContainer.classList.remove("hidden");
       initGame();
     }
 
@@ -155,14 +207,16 @@
         return;
       }
 
+      totalPlayers = roomData.total;
       let joined = roomData.joined || 0;
-      if (joined >= roomData.total) {
+      if (joined >= totalPlayers) {
         wordDiv.innerText = "❌ Room is full.";
         revealBtn.style.display = "none";
         return;
       }
 
-      const playerIndex = joined;
+      playerIndex = joined;
+
       await supabaseClient.from("rooms")
         .update({ joined: joined + 1 })
         .eq("room_id", roomId);
@@ -175,21 +229,71 @@
           wordDiv.innerText = "🕵️‍♂️ Word: " + roomData.word;
         }
       };
+
+      // Poll chat and manage turns
+      setInterval(async () => {
+        const { data: messages } = await supabaseClient
+          .from("messages")
+          .select("*")
+          .eq("room_id", roomId)
+          .order("turn", { ascending: true });
+
+        chatMessages.innerHTML = messages
+          .map(m => `<p><b>${m.player_name}:</b> ${m.message}</p>`)
+          .join("");
+
+        let currentTurn = messages.length ? (messages[messages.length - 1].turn + 1) % totalPlayers : 0;
+
+        if (playerIndex === currentTurn) {
+          chatInput.disabled = false;
+          sendBtn.disabled = false;
+        } else {
+          chatInput.disabled = true;
+          sendBtn.disabled = true;
+        }
+
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }, 1000);
     }
 
+    sendBtn.onclick = async () => {
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      // Determine current turn before sending
+      const { data: messages } = await supabaseClient
+        .from("messages")
+        .select("*")
+        .eq("room_id", roomId)
+        .order("turn", { ascending: true });
+
+      let currentTurn = messages.length ? (messages[messages.length - 1].turn + 1) % totalPlayers : 0;
+
+      if (playerIndex !== currentTurn) {
+        alert("Not your turn!");
+        return;
+      }
+
+      await supabaseClient.from("messages").insert([
+        { room_id: roomId, player_name: `Player ${playerIndex + 1}`, message: message, turn: currentTurn }
+      ]);
+
+      chatInput.value = "";
+    };
+
     document.getElementById("createGame").onclick = async () => {
-      const totalPlayers = parseInt(playerSelect.value);
-      if (!totalPlayers) {
+      const total = parseInt(playerSelect.value);
+      if (!total) {
         alert("Please select number of players.");
         return;
       }
 
       const word = WORDS[Math.floor(Math.random() * WORDS.length)];
-      const imposterIndex = Math.floor(Math.random() * totalPlayers);
-      const roomId = Math.random().toString(36).substring(2, 8);
+      const imposterIndex = Math.floor(Math.random() * total);
+      roomId = Math.random().toString(36).substring(2, 8);
 
       const { error } = await supabaseClient.from("rooms").insert([
-        { room_id: roomId, word: word, total: totalPlayers, joined: 0, imposter: imposterIndex }
+        { room_id: roomId, word: word, total: total, joined: 0, imposter: imposterIndex }
       ]);
 
       if (error) {
