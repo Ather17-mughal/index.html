@@ -3,35 +3,43 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎭 Imposter Guesser</title>
+  <title>Imposter Guesser</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.14/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      font-family: 'Inter', sans-serif;
+      transition: background 0.3s ease;
+    }
+    .fade {
+      animation: fadeIn 0.4s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
 </head>
-<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-6 text-center">
+<body class="flex flex-col items-center justify-center min-h-screen text-white text-center px-6">
 
-  <h1 class="text-3xl font-bold mb-4">🎭 Imposter Guesser</h1>
-  <p class="text-gray-400 mb-6">Share this same link with your friends!</p>
-  
-  <div class="bg-gray-800 p-6 rounded-2xl shadow-md w-full max-w-sm flex flex-col items-center">
-    <button id="reveal" class="bg-blue-600 px-6 py-3 rounded text-lg mb-4 hover:bg-blue-700">Reveal My Role</button>
+  <div id="game" class="fade flex flex-col items-center justify-center gap-6 w-full">
+    <button id="reveal" 
+      class="bg-white text-black text-2xl font-semibold px-12 py-6 rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all duration-150">
+      REVEAL
+    </button>
 
-    <div id="result" class="hidden">
-      <h3 id="message" class="text-2xl font-bold mb-2"></h3>
-      <p id="wordDisplay" class="text-xl text-gray-300"></p>
+    <div id="result" class="hidden fade flex flex-col items-center">
+      <p id="wordDisplay" class="text-4xl font-bold tracking-wide"></p>
     </div>
-
-    <button id="reset" class="hidden bg-gray-700 mt-4 px-4 py-2 rounded hover:bg-gray-600">Reset</button>
   </div>
 
   <script>
-    const WORDS = ["Pizza", "Dog", "Beach", "Book", "Football", "Moon", "Laptop", "Coffee", "Car", "Ice Cream"];
-
+    const WORDS = ["Pizza", "Sun", "Laptop", "River", "Book", "Coffee", "Dog", "Car", "Music", "Beach"];
     const revealBtn = document.getElementById("reveal");
-    const resetBtn = document.getElementById("reset");
     const result = document.getElementById("result");
-    const message = document.getElementById("message");
     const wordDisplay = document.getElementById("wordDisplay");
 
-    // Generate random room ID based on URL (auto)
+    // generate random room link if not present
     let room = new URLSearchParams(window.location.search).get("room");
     if (!room) {
       room = Math.random().toString(36).substring(2, 8);
@@ -39,11 +47,9 @@
       history.replaceState(null, "", newURL);
     }
 
-    // Store word + imposter locally per room
+    // setup word and imposter
     let word = localStorage.getItem(`${room}_word`);
     let imp = localStorage.getItem(`${room}_imp`);
-
-    // If first player → assign word and imposter
     if (!word || !imp) {
       word = WORDS[Math.floor(Math.random() * WORDS.length)];
       imp = Math.random().toString(36).substring(2, 10);
@@ -51,7 +57,7 @@
       localStorage.setItem(`${room}_imp`, imp);
     }
 
-    // Each player has unique ID in this room
+    // assign ID for player
     let myId = localStorage.getItem(`myId_${room}`);
     if (!myId) {
       myId = Math.random().toString(36).substring(2, 10);
@@ -59,28 +65,17 @@
     }
 
     revealBtn.addEventListener("click", () => {
-      result.classList.remove("hidden");
       revealBtn.classList.add("hidden");
-      resetBtn.classList.remove("hidden");
+      result.classList.remove("hidden");
 
       if (myId === imp) {
-        message.textContent = "😈 You are the Imposter!";
-        message.classList.add("text-red-400");
-        wordDisplay.textContent = "Try to blend in!";
+        document.body.style.background = "linear-gradient(135deg, #7f1d1d, #b91c1c)";
+        wordDisplay.textContent = "😈 Oh! You are the Imposter";
       } else {
-        message.textContent = "🕵️ You are a Player!";
-        message.classList.add("text-green-400");
-        wordDisplay.textContent = `Word: ${word}`;
+        document.body.style.background = "linear-gradient(135deg, #064e3b, #065f46)";
+        wordDisplay.textContent = word;
       }
     });
-
-    resetBtn.addEventListener("click", () => {
-      localStorage.removeItem(`${room}_word`);
-      localStorage.removeItem(`${room}_imp`);
-      localStorage.removeItem(`myId_${room}`);
-      location.reload();
-    });
   </script>
-
 </body>
 </html>
